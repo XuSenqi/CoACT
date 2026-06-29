@@ -1,0 +1,33 @@
+# Isolated dependencies for the LongCodeZip compression service.
+#
+# Install into a dedicated virtualenv (NOT .venv-vllm): the `longcodezip` package
+# pins a transformers version that conflicts with the transformers>=5 used by vLLM.
+#
+#   uv venv .venv-longcodezip
+#   uv pip install --python .venv-longcodezip -r scripts/vllm/requirements-longcodezip.txt
+#
+# Then launch with scripts/vllm/serve_longcodezip.sh
+#
+# Setup gotchas observed on this box (same as the LLMLingua-2 service):
+#  1) torch must match the NVIDIA driver's CUDA (driver here = CUDA 12.8, i.e. nvidia-smi
+#     reports 570.x / CUDA 12.8). The default PyPI `torch` pulls a cu130 build (e.g.
+#     2.12.0+cu130) that fails at CUDA init with "NVIDIA driver too old (found version
+#     12080)". Pin to the newest cu128 wheel (2.11.0 is the cu128 ceiling). If a proxy is
+#     set in the shell, clear it for the pytorch CDN:
+#       env -u http_proxy -u https_proxy -u all_proxy -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY \
+#         uv pip install --python .venv-longcodezip --index-url https://download.pytorch.org/whl/cu128 'torch==2.11.0'
+#     Verify: .venv-longcodezip/bin/python -c "import torch; print(torch.cuda.is_available())"
+#     Or run CPU-only (slow, but no driver/torch-CUDA dependency):
+#       LONGCODEZIP_DEVICE=cpu bash scripts/vllm/serve_longcodezip.sh
+#  2) The compressor LM is downloaded from Hugging Face on first run. If the hf-mirror.com
+#     mirror breaks huggingface_hub's metadata check, download once with the mirror disabled:
+#       env -u HF_ENDPOINT HF_HOME=/ssd/chr/vllm_cache/huggingface \
+#         .venv-longcodezip/bin/python -c "from huggingface_hub import snapshot_download; \
+#         snapshot_download('Qwen/Qwen2.5-Coder-7B-Instruct')"
+#
+# longcodezip is installed from the official repo (the upstream `LongCodeZip` class).
+git+https://github.com/YerbaPage/LongCodeZip.git
+transformers
+torch
+fastapi
+uvicorn

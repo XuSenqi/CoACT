@@ -1,0 +1,256 @@
+# ============================================
+# CoACT Configuration File
+# ============================================
+# This is the unified configuration file for all hyperparameters.
+# All changes to training/inference behavior should be made here.
+
+# ============================================
+# Agent Model Configuration
+# ============================================
+# LiteLLM model format: "provider/model-name"
+agent:
+  model: "openai/Qwen3.5-35B-A3B-FP8"
+  api_endpoint: "http://localhost:8000/v1"
+  api_key: null           # Optional; passed only to the agent model
+
+  # Inference parameters for tool calling
+  temperature: 0.6          # Sampling temperature
+  top_p: 0.95               # Nucleus sampling
+  top_k: 20                 # Top-k sampling
+  min_p: 0.0                # Minimum probability for token sampling
+  presence_penalty: 0.0     # Presence penalty (0 = no penalty)
+  repetition_penalty: 1.0   # Repetition penalty (1 = no penalty)
+  max_tokens: 81920         # Max response tokens
+  step_limit: 0             # Max agent steps (0 = unlimited)
+  request_timeout: 120.0    # Per-request LiteLLM timeout in seconds
+  model_retry_stop_after_attempt: 3  # Retries for transient model call failures
+
+# ============================================
+# Pricing Configuration (USD per token)
+# ============================================
+# Set all values to 0.0 for free local models.
+# cache_read_input_token_cost: discounted rate for prefix-cache hits.
+# cache_creation_input_token_cost: cost for Anthropic-style cache writes.
+pricing:
+  "openai/Qwen3.5-35B-A3B-FP8":
+    input_cost_per_token: 0.000000294291
+    output_cost_per_token: 0.000000441436
+    cache_read_input_token_cost: 0.0000000294291
+    cache_creation_input_token_cost: 0.0
+  "openai/gemini-3-flash-preview":
+    input_cost_per_token: 0.0000005
+    output_cost_per_token: 0.000003
+    cache_read_input_token_cost: 0.00000005
+    cache_creation_input_token_cost: 0.0
+  "openai/Qwen3.5-4B":
+    input_cost_per_token: 0.0
+    output_cost_per_token: 0.0
+    cache_read_input_token_cost: 0.0
+    cache_creation_input_token_cost: 0.0
+  "openai/deepseek-v4-pro":
+    input_cost_per_token: 0.000000441436
+    output_cost_per_token: 0.000000882872
+    cache_read_input_token_cost: 0.00000000367863
+    cache_creation_input_token_cost: 0.0
+  "openai/gpt-5-mini":
+    input_cost_per_token: 0.00000025
+    output_cost_per_token: 0.000002
+    cache_read_input_token_cost: 0.000000025
+    cache_creation_input_token_cost: 0.0
+
+# ============================================
+# Data Configuration
+# ============================================
+data:
+  train_dataset: "data/SWE-smith"
+  eval_dataset: "data/SWE-bench_Verified"
+  train_split: "train"
+  eval_split: "test"
+
+# ============================================
+# Wandb Configuration
+# ============================================
+wandb:
+  enabled: true
+  project: "CoACT"
+
+# ============================================
+# Paths
+# ============================================
+paths:
+  trajectory_dir: "data/trajectories"
+  dagger_trajectory_dir: "data/trajectories_dagger"
+  sft_data_dir: "data/sft"
+  checkpoint_dir: "checkpoints"
+  eval_run_dir: "data/eval/runs"
+
+# ============================================
+# SFT Training Configuration
+# ============================================
+sft:
+  # Local base model for SFT training
+  model_path: "model/Qwen3.5-4B"
+
+  # Compression rollout model for SFT data generation
+  rollout:
+    model: "openai/gemini-3-flash-preview"
+    api_endpoint: ""
+    api_key: null         # Optional; passed only to the SFT rollout model
+    temperature: 1.0
+    top_p: 0.95
+    top_k: 20
+    min_p: 0.0
+    presence_penalty: 0.0
+    repetition_penalty: 1.0
+    max_tokens: 65535
+    request_timeout: 120.0
+    model_retry_stop_after_attempt: 3
+
+  # Training settings
+  seed: 42
+  learning_rate: 2.0e-4
+  per_device_train_batch_size: 4
+  gradient_checkpointing: true
+  gradient_accumulation_steps: 2
+  max_length: 32768
+  num_train_epochs: 1
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+
+  # Evaluation and saving
+  eval_split_ratio: 0.1
+  eval_steps: 10
+  save_steps: 10
+  logging_steps: 1
+
+  # Precision
+  bf16: true
+
+  # Data path(s): concatenated at training time. Off-policy + DAGGER, each with
+  # source-namespaced trajectory_ids so their groups never collide.
+  data_file:
+    - "sft_data.offpolicy.jsonl"
+    - "sft_data.dagger.jsonl"
+  drop_overlength_examples: true
+  dataloader_drop_last: true
+
+  # Data preparation settings
+  data_preparation:
+    num_samples: 8                      # Number of outputs to sample per step
+    select_top_k: 4                     # Among action-passing candidates, keep the k shortest
+                                        # (highest length_reward) per step.
+    min_similarity: 0.6                 # action_reward quality gate (behavior-preservation floor)
+    skip_compression_max_tokens: 512
+    inject_unchanged_fallback: true     # For groups with no rollout passing min_similarity,
+                                        # inject one synthetic "unchanged" completion so the
+                                        # compressor learns a conservative fallback on hard steps.
+    anchor_num_samples: 8               # K agent samples on the uncompressed context per step,
+                                        # used as the anchor set when scoring action_reward
+                                        # (in-pipeline for both off-policy and DAGGER prep).
+    anchor_temperature: 0.7             # Sampling temp for anchor-set agent calls; must be > 0
+                                        # so the anchor reflects the natural distribution rather
+                                        # than the deterministic mode (which equals GT).
+    dagger_inferred_temperature: 0.0    # Agent temp when recomputing inferred_action on a DAGGER
+                                        # deploy prefix. Default 0 = deterministic mode, matches
+                                        # original inferred_action semantics.
+    anchor_aggregator: "top3"           # Collapse per-anchor sims into action_reward:
+                                        # mean | max | top3 | count.
+    anchor_count_threshold: 0.5         # Similarity threshold for the "count" aggregator.
+
+  # LoRA settings for SFT
+  lora:
+    r: 64
+    alpha: 128
+    dropout: 0.0
+    target_modules: "all-linear"
+    use_rslora: false
+    use_dora: true
+
+# ============================================
+# Evaluation Configuration
+# ============================================
+evaluation:
+  # Sliding window baseline: keep only the most recent N tool outputs
+  sliding_window_size: 10
+
+  # CoACT trained compression model (LoRA adapter on Qwen3.5-4B)
+  coact:
+    model: "openai/Qwen3.5-4B-sft-merged-dsv4pro"
+    api_endpoint: "http://localhost:8001/v1"
+    temperature: 0.6
+    top_p: 0.95
+    top_k: 20
+    min_p: 0.0
+    presence_penalty: 0.0
+    repetition_penalty: 1.0
+    max_tokens: 81920
+    request_timeout: 120.0
+    model_retry_stop_after_attempt: 3
+    skip_compression_max_tokens: 512
+
+  # AgentDiet reflection baseline
+  agentdiet:
+    model: "openai/gpt-5-mini"
+    api_endpoint: "https://api.openai.com/v1"
+    temperature: 1.0
+    # top_p: 0.95
+    # top_k: 20
+    # min_p: 0.0
+    # presence_penalty: 0.0
+    # repetition_penalty: 1.0
+    max_tokens: 81920
+    request_timeout: 120.0
+    model_retry_stop_after_attempt: 3
+    delay_steps: 2
+    window_before_steps: 1
+    token_threshold: 500
+
+  # SWEPruner pruning service (FastAPI server hosting fine-tuned Qwen3-Reranker)
+  # Run scripts/vllm/serve_swepruner.sh first; this section configures the HTTP client.
+  swepruner:
+    endpoint: "http://localhost:8003"
+    threshold: 0.5
+    always_keep_first_frags: false
+    chunk_overlap_tokens: 50
+    request_timeout: 120.0
+    retries: 3
+    skip_compression_max_tokens: 500
+
+  # LLMLingua-2 task-agnostic token-classification compression service.
+  llmlingua2:
+    endpoint: "http://localhost:8004"
+    rate: 0.8
+    target_token: -1
+    force_tokens: []
+    force_reserve_digit: false
+    drop_consecutive: false
+    chunk_end_tokens: [".", "\n"]
+    use_token_level_filter: true
+    use_context_level_filter: false
+    request_timeout: 120.0
+    retries: 3
+    skip_compression_max_tokens: 512
+
+  # LongCodeZip two-stage, query-aware code compression service (arXiv:2510.00446).
+  longcodezip:
+    endpoint: "http://localhost:8005"
+    rate: 0.5                                   # token retention fraction (keep ~50%)
+    language: "python"
+    dynamic_compression_ratio: 0.2
+    context_budget: "+100"
+    rank_only: false                            # false = full two-stage (coarse + fine)
+    fine_ratio: null                            # null = derive fine budget from rate
+    fine_grained_importance_method: "conditional_ppl"
+    min_lines_for_fine_grained: 5
+    importance_beta: 0.5
+    use_knapsack: true
+    request_timeout: 120.0
+    retries: 3
+    skip_compression_max_tokens: 512
+
+  # SWE-bench evaluation
+  swebench_max_workers: 8       # Parallel workers for Docker evaluation
+
+  # Timeout settings
+  instance_timeout: 300        # Timeout per instance (seconds)

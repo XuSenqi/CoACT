@@ -1,0 +1,26 @@
+# Isolated dependencies for the LLMLingua-2 compression service.
+#
+# Install into a dedicated virtualenv (NOT .venv-vllm): `llmlingua` pulls a
+# transformers version that conflicts with the transformers>=5 pinned by vLLM.
+#
+#   uv venv .venv-llmlingua
+#   uv pip install --python .venv-llmlingua -r scripts/vllm/requirements-llmlingua2.txt
+#
+# Then launch with scripts/vllm/serve_llmlingua2.sh
+#
+# Setup gotchas observed on this box:
+#  1) Downloading the model: this repo is Xet-backed and the hf-mirror.com mirror breaks
+#     huggingface_hub's metadata check ("Distant resource does not seem to be on huggingface.co").
+#     Download once with the mirror DISABLED (direct HF reaches the CDN fine here):
+#       env -u HF_ENDPOINT HF_HOME=/ssd/chr/vllm_cache/huggingface \
+#         .venv-llmlingua/bin/python -c "from huggingface_hub import snapshot_download; \
+#         snapshot_download('microsoft/llmlingua-2-xlm-roberta-large-meetingbank', \
+#         allow_patterns=['*.json','*.safetensors','*.model'])"
+#     After it's cached, serve_llmlingua2.sh works with the mirror env unchanged.
+#  2) torch must match the NVIDIA driver's CUDA (driver here = CUDA 12.8). `uv pip install llmlingua`
+#     pulls torch+cu130 which fails on this driver. For GPU, install a cu128 wheel:
+#       uv pip install --python .venv-llmlingua torch --index-url https://download.pytorch.org/whl/cu128
+#     Or run CPU-only (no driver/torch-CUDA dependency): LLMLINGUA_DEVICE=cpu bash scripts/vllm/serve_llmlingua2.sh
+llmlingua
+fastapi
+uvicorn
