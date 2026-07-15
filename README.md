@@ -4,6 +4,7 @@ Official implementation of our paper "CoACT: Action-Preserving Observation Compr
 
 ## News
 
+- **[Jul, 2026]**: We released the pretrained CoACT observation compressor on [Hugging Face](https://huggingface.co/Kndy666/CoACT).
 - **[Jul, 2026]**: We released the code for CoACT.
 
 ## Overview
@@ -38,6 +39,18 @@ The project includes:
 - **Evaluation harness** - SWE-bench Verified evaluation, cost tracking, run management, and metric aggregation.
 - **Baselines** - vanilla, sliding window, AgentDiet, SWE-Pruner, LLMLingua-2, LongCodeZip, CoACT, sliding_window_CoACT, and agentdiet_CoACT.
 - **vLLM services** - serving scripts for the agent model, CoACT compressor, and compression baselines.
+
+## Model Checkpoint
+
+The pretrained CoACT observation compressor is available on [Hugging Face](https://huggingface.co/Kndy666/CoACT). It is a merged Qwen3.5-4B checkpoint trained from trajectories collected with Qwen3.5-35B-A3B.
+
+Our cross-agent generalization experiments show that compressors trained from different agentic models achieve similar performance when transferred across agents. For example, when evaluated with Deepseek-v4-Pro, the compressor trained from Qwen3.5-35B-A3B trajectories achieves **74.5% pass@1** with **0.863M total tokens** per instance, close to **75.0% pass@1** and **0.868M total tokens** for the compressor trained from Deepseek-v4-Pro trajectories. These results suggest that a separately trained compressor is not required for each agentic model. Accordingly, we release the Qwen-trained checkpoint as the default checkpoint for use across agentic models.
+
+Download the checkpoint with:
+
+```bash
+hf download Kndy666/CoACT --local-dir checkpoints/CoACT
+```
 
 ## Directory Structure
 
@@ -78,7 +91,7 @@ CoACT/
 Clone the repository with submodules:
 
 ```bash
-git clone --recurse-submodules https://github.com/Kndy666/CoACT.git
+git clone --recurse-submodules https://github.com/THU-Agent/CoACT.git
 cd CoACT
 ```
 
