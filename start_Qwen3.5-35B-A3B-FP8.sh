@@ -12,6 +12,19 @@ export LD_LIBRARY_PATH=$VLLM_NVIDIA_LIBS/nvidia/nvjitlink/lib:$VLLM_NVIDIA_LIBS/
 
 export CUDA_VISIBLE_DEVICES=0
 
+#nohup ./scripts/run_vllm.sh serve model/Qwen3.5-35B-A3B-FP8 \
+#  --host 0.0.0.0 \
+#  --port 8000 \
+#  --served-model-name Qwen3.5-35B-A3B-FP8 \
+#  --tensor-parallel-size 1 \
+#  --max-model-len 131072 \
+#  --reasoning-parser qwen3 \
+#  --enable-auto-tool-choice \
+#  --tool-call-parser qwen3_coder \
+#  --gpu-memory-utilization 0.70 \
+#  --language-model-only \
+#  --gdn-prefill-backend triton >> Qwen.log &
+
 nohup ./scripts/run_vllm.sh serve model/Qwen3.5-35B-A3B-FP8 \
   --host 0.0.0.0 \
   --port 8000 \
@@ -21,6 +34,6 @@ nohup ./scripts/run_vllm.sh serve model/Qwen3.5-35B-A3B-FP8 \
   --reasoning-parser qwen3 \
   --enable-auto-tool-choice \
   --tool-call-parser qwen3_coder \
-  --gpu-memory-utilization 0.70 \
+  --gpu-memory-utilization 0.45 \
   --language-model-only \
   --gdn-prefill-backend triton >> Qwen.log &

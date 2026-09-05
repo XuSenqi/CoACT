@@ -22,12 +22,22 @@ export CUDA_VISIBLE_DEVICES=0   # 若只有一张卡且 Agent 已占满，见下
 #  --language-model-only \
 #  --gdn-prefill-backend triton >> CoACT.log &
 
+#nohup ./scripts/run_vllm.sh serve checkpoints/CoACT \
+#  --host 0.0.0.0 \
+#  --port 8001 \
+#  --served-model-name CoACT \
+#  --tensor-parallel-size 1 \
+#  --max-model-len 131072 \
+#  --gpu-memory-utilization 0.20 \
+#  --language-model-only \
+#  --gdn-prefill-backend triton >> CoACT.log &
+
 nohup ./scripts/run_vllm.sh serve checkpoints/CoACT \
   --host 0.0.0.0 \
   --port 8001 \
   --served-model-name CoACT \
   --tensor-parallel-size 1 \
   --max-model-len 131072 \
-  --gpu-memory-utilization 0.20 \
+  --gpu-memory-utilization 0.45 \
   --language-model-only \
   --gdn-prefill-backend triton >> CoACT.log &
